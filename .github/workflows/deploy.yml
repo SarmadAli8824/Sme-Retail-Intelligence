@@ -1,0 +1,15 @@
+name: Deploy to k3s
+on:
+  workflow_dispatch:
+  push: {branches: [main]}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.repository_owner != 'REPLACE'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: azure/setup-kubectl@v4
+    - name: Configure cluster access
+      run: mkdir -p $HOME/.kube && echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+    - name: Apply k3s manifests
+      run: kubectl apply -f infra/kubernetes

@@ -1,0 +1,16 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+pydantic-settings==2.7.0
+email-validator==2.2.0
+PyJWT==2.10.1
+pwdlib[argon2]==0.2.1
+python-multipart==0.0.20
+pandas==2.2.3
+numpy==2.2.1
+statsmodels==0.14.4
+prophet==1.1.6
+sqlglot==25.34.1
+httpx==0.28.1
+prometheus-client==0.21.1

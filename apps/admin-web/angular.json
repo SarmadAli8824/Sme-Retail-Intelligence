@@ -1,0 +1,2 @@
+{"version":1,"projects":{"admin-web":{"projectType":"application","root":"","sourceRoot":"src","architect":{"build":{"builder":"@angular-devkit/build-angular:application","options":{"outputPath":"dist/admin-web","browser":"src/main.ts","index":"src/index.html","tsConfig":"tsconfig.json"}}}}}}
+

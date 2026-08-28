@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-retail_intelligence}
+      POSTGRES_USER: ${POSTGRES_USER:-retail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes: [postgres-data:/var/lib/postgresql/data]
+  api:
+    build: ./services/api
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://retail:change-me@postgres:5432/retail_intelligence}
+    depends_on:
+      postgres: {condition: service_healthy}
+    ports: ["8000:8000"]
+  worker:
+    build: ./services/worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-retail}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-retail_intelligence}?sslmode=disable
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres: {condition: service_healthy}
+  owner-web:
+    build: ./apps/owner-web
+    environment: {NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1}
+    depends_on: [api]
+    ports: ["3000:3000"]
+  admin-web:
+    build: ./apps/admin-web
+    depends_on: [api]
+    ports: ["4200:80"]
+volumes:
+  postgres-data:

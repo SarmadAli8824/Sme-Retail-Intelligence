@@ -1,0 +1,3 @@
+import {HttpClient,HttpInterceptorFn} from '@angular/common/http'; import {inject,Injectable} from '@angular/core';
+export const authInterceptor:HttpInterceptorFn=(req,next)=>next(req.clone({setHeaders:{Authorization:`Bearer ${localStorage.getItem('retail_intelligence_token')||''}`}}));
+@Injectable({providedIn:'root'}) export class ApiService {private http=inject(HttpClient);private api='http://localhost:8000/api/v1';login(v:any){return this.http.post<any>(this.api+'/auth/login',v)}users(){return this.http.get<any[]>(this.api+'/users')}createUser(v:any){return this.http.post(this.api+'/users',v)}upload(file:File){const f=new FormData();f.append('file',file);return this.http.post<any>(this.api+'/uploads/inventory',f)}}

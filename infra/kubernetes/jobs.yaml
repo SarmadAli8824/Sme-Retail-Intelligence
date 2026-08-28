@@ -1,0 +1,10 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: weekly-digest, namespace: retail-intelligence}
+spec: {schedule: "0 8 * * 1", jobTemplate: {spec: {template: {spec: {restartPolicy: OnFailure, containers: [{name: worker,image: ghcr.io/REPLACE/sme-retail-worker:latest,envFrom: [{secretRef: {name: retail-secrets}}]}]}}}}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: encrypted-postgres-backup, namespace: retail-intelligence}
+spec: {schedule: "30 2 * * *", jobTemplate: {spec: {template: {spec: {restartPolicy: OnFailure, containers: [{name: backup,image: ghcr.io/REPLACE/retail-pg-backup:latest,envFrom: [{secretRef: {name: retail-secrets}}],env: [{name: GPG_PASSPHRASE,valueFrom: {secretKeyRef: {name: backup-secrets,key: gpg-passphrase}}},{name: OCI_BUCKET,value: retail-backups}]}]}}}}
+
