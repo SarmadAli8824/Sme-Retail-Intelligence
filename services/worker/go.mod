@@ -1,4 +1,4 @@
-module github.com/example/sme-retail-intelligence/worker
+module github.com/SarmadAli8824/Sme-Retail-Intelligence/services/worker
 
 go 1.23
 

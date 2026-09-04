@@ -20,6 +20,6 @@ spec:
         ports: [{containerPort: 5432}]
         resources: {requests: {cpu: 150m, memory: 384Mi}, limits: {cpu: "1", memory: 1Gi}}
         readinessProbe: {exec: {command: ["sh","-c","pg_isready -U retail"]}, initialDelaySeconds: 10}
+        livenessProbe: {exec: {command: ["sh","-c","pg_isready -U retail"]}, initialDelaySeconds: 30, periodSeconds: 20}
         volumeMounts: [{name: data, mountPath: /var/lib/postgresql/data}]
   volumeClaimTemplates: [{metadata: {name: data}, spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 20Gi}}}}]
-

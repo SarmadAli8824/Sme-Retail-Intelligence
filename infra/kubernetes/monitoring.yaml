@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: prometheus-config, namespace: retail-intelligence}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: retail-api
+        metrics_path: /metrics
+        static_configs: [{targets: ["api:8000"]}]
+      - job_name: retail-worker
+        metrics_path: /metrics
+        static_configs: [{targets: ["worker:8080"]}]
+      - job_name: retail-postgres
+        static_configs: [{targets: ["postgres-exporter:9187"]}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: prometheus, namespace: retail-intelligence}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: prometheus}}
+  template:
+    metadata: {labels: {app: prometheus}}
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v3.5.0
+        args: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=7d"]
+        ports: [{name: http, containerPort: 9090}]
+        resources: {requests: {cpu: 100m, memory: 192Mi}, limits: {cpu: 500m, memory: 512Mi}}
+        readinessProbe: {httpGet: {path: /-/ready, port: http}, initialDelaySeconds: 8}
+        livenessProbe: {httpGet: {path: /-/healthy, port: http}, initialDelaySeconds: 20}
+        volumeMounts: [{name: config, mountPath: /etc/prometheus}]
+      volumes: [{name: config, configMap: {name: prometheus-config}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: prometheus, namespace: retail-intelligence}
+spec: {selector: {app: prometheus}, ports: [{name: http, port: 9090, targetPort: http}]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: postgres-exporter, namespace: retail-intelligence}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: postgres-exporter}}
+  template:
+    metadata: {labels: {app: postgres-exporter}}
+    spec:
+      containers:
+      - name: exporter
+        image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+        env: [{name: DATA_SOURCE_NAME, valueFrom: {secretKeyRef: {name: retail-secrets, key: worker-database-url}}}]
+        ports: [{name: metrics, containerPort: 9187}]
+        resources: {requests: {cpu: 25m, memory: 48Mi}, limits: {cpu: 150m, memory: 128Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: postgres-exporter, namespace: retail-intelligence}
+spec: {selector: {app: postgres-exporter}, ports: [{name: metrics, port: 9187, targetPort: metrics}]}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: grafana-datasource, namespace: retail-intelligence}
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: grafana, namespace: retail-intelligence}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: grafana}}
+  template:
+    metadata: {labels: {app: grafana}}
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:12.1.0
+        env:
+        - {name: GF_SERVER_ROOT_URL, value: "%(protocol)s://%(domain)s/grafana/"}
+        - {name: GF_SERVER_SERVE_FROM_SUB_PATH, value: "true"}
+        - {name: GF_SECURITY_ADMIN_PASSWORD, valueFrom: {secretKeyRef: {name: grafana-secrets, key: admin-password}}}
+        ports: [{name: http, containerPort: 3000}]
+        resources: {requests: {cpu: 75m, memory: 128Mi}, limits: {cpu: 300m, memory: 384Mi}}
+        readinessProbe: {httpGet: {path: /api/health, port: http}, initialDelaySeconds: 15}
+        volumeMounts: [{name: datasource, mountPath: /etc/grafana/provisioning/datasources}]
+      volumes: [{name: datasource, configMap: {name: grafana-datasource}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: grafana, namespace: retail-intelligence}
+spec: {selector: {app: grafana}, ports: [{name: http, port: 3000, targetPort: http}]}

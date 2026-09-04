@@ -6,13 +6,17 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata: {labels: {app: worker-job}}
         spec:
           restartPolicy: OnFailure
           containers:
             - name: worker
               image: ghcr.io/REPLACE/sme-retail-worker:latest
-              envFrom:
-                - secretRef: {name: retail-secrets}
+              env:
+                - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: retail-secrets, key: worker-database-url}}}
+                - {name: RESEND_API_KEY, valueFrom: {secretKeyRef: {name: retail-secrets, key: resend-api-key, optional: true}}}
+                - {name: RESEND_FROM, valueFrom: {configMapKeyRef: {name: retail-config, key: RESEND_FROM}}}
+                - {name: WORKER_RUN_ONCE, value: "true"}
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -22,16 +26,15 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata: {labels: {app: backup}}
         spec:
           restartPolicy: OnFailure
           containers:
             - name: backup
               image: ghcr.io/REPLACE/retail-pg-backup:latest
-              envFrom:
-                - secretRef: {name: retail-secrets}
               env:
+                - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: retail-secrets, key: backup-database-url}}}
                 - name: GPG_PASSPHRASE
                   valueFrom:
                     secretKeyRef: {name: backup-secrets, key: gpg-passphrase}
-                - name: OCI_BUCKET
-                  value: retail-backups
+                - {name: OCI_UPLOAD_URL, valueFrom: {secretKeyRef: {name: backup-secrets, key: oci-upload-url}}}

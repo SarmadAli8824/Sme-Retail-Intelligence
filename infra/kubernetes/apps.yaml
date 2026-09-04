@@ -1,18 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: api, namespace: retail-intelligence}
+metadata: {name: api, namespace: retail-intelligence, labels: {app: api}}
 spec:
   replicas: 2
   selector: {matchLabels: {app: api}}
   template:
     metadata: {labels: {app: api}}
     spec:
-      containers: [{name: api, image: ghcr.io/REPLACE/sme-retail-api:latest, envFrom: [{secretRef: {name: retail-secrets}},{configMapRef: {name: retail-config}}], ports: [{containerPort: 8000}], resources: {requests: {cpu: 150m, memory: 384Mi}, limits: {cpu: "1", memory: 1Gi}}, readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 10}, livenessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 30}}]
+      containers:
+      - name: api
+        image: ghcr.io/REPLACE/sme-retail-api:latest
+        envFrom: [{configMapRef: {name: retail-config}}]
+        env:
+        - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: retail-secrets, key: api-database-url}}}
+        - {name: JWT_SECRET, valueFrom: {secretKeyRef: {name: retail-secrets, key: jwt-secret}}}
+        - {name: GEMINI_API_KEY, valueFrom: {secretKeyRef: {name: retail-secrets, key: gemini-api-key, optional: true}}}
+        - {name: GROQ_API_KEY, valueFrom: {secretKeyRef: {name: retail-secrets, key: groq-api-key, optional: true}}}
+        ports: [{name: http, containerPort: 8000}]
+        resources: {requests: {cpu: 150m, memory: 384Mi}, limits: {cpu: "1", memory: 1Gi}}
+        readinessProbe: {httpGet: {path: /health, port: http}, initialDelaySeconds: 10, periodSeconds: 10}
+        livenessProbe: {httpGet: {path: /health, port: http}, initialDelaySeconds: 30, periodSeconds: 20}
 ---
 apiVersion: v1
 kind: Service
 metadata: {name: api, namespace: retail-intelligence}
-spec: {selector: {app: api}, ports: [{port: 8000, targetPort: 8000}]}
+spec: {selector: {app: api}, ports: [{name: http, port: 8000, targetPort: http}]}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -21,25 +33,75 @@ spec: {scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: api}, minRe
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: owner-web, namespace: retail-intelligence}
-spec: {replicas: 2, selector: {matchLabels: {app: owner-web}}, template: {metadata: {labels: {app: owner-web}}, spec: {containers: [{name: owner-web,image: ghcr.io/REPLACE/sme-retail-owner:latest,ports: [{containerPort: 3000}],resources: {requests: {cpu: 50m,memory: 128Mi},limits: {cpu: 300m,memory: 256Mi}}}]}}}
+metadata: {name: owner-web, namespace: retail-intelligence, labels: {app: owner-web}}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: owner-web}}
+  template:
+    metadata: {labels: {app: owner-web}}
+    spec:
+      containers:
+      - name: owner-web
+        image: ghcr.io/REPLACE/sme-retail-owner:latest
+        ports: [{name: http, containerPort: 3000}]
+        resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: 300m, memory: 256Mi}}
+        readinessProbe: {httpGet: {path: /, port: http}, initialDelaySeconds: 8}
+        livenessProbe: {httpGet: {path: /, port: http}, initialDelaySeconds: 25}
 ---
 apiVersion: v1
 kind: Service
 metadata: {name: owner-web, namespace: retail-intelligence}
-spec: {selector: {app: owner-web}, ports: [{port: 3000, targetPort: 3000}]}
+spec: {selector: {app: owner-web}, ports: [{name: http, port: 3000, targetPort: http}]}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: owner-web, namespace: retail-intelligence}
+spec: {scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: owner-web}, minReplicas: 2, maxReplicas: 4, metrics: [{type: Resource, resource: {name: cpu, target: {type: Utilization, averageUtilization: 75}}}]}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: admin-web, namespace: retail-intelligence}
-spec: {replicas: 1, selector: {matchLabels: {app: admin-web}}, template: {metadata: {labels: {app: admin-web}}, spec: {containers: [{name: admin-web,image: ghcr.io/REPLACE/sme-retail-admin:latest,ports: [{containerPort: 80}],resources: {requests: {cpu: 50m,memory: 128Mi},limits: {cpu: 300m,memory: 256Mi}}}]}}}
+metadata: {name: admin-web, namespace: retail-intelligence, labels: {app: admin-web}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: admin-web}}
+  template:
+    metadata: {labels: {app: admin-web}}
+    spec:
+      containers:
+      - name: admin-web
+        image: ghcr.io/REPLACE/sme-retail-admin:latest
+        ports: [{name: http, containerPort: 80}]
+        resources: {requests: {cpu: 50m, memory: 96Mi}, limits: {cpu: 300m, memory: 256Mi}}
+        readinessProbe: {httpGet: {path: /health, port: http}, initialDelaySeconds: 5}
+        livenessProbe: {httpGet: {path: /health, port: http}, initialDelaySeconds: 20}
 ---
 apiVersion: v1
 kind: Service
 metadata: {name: admin-web, namespace: retail-intelligence}
-spec: {selector: {app: admin-web}, ports: [{port: 80, targetPort: 80}]}
+spec: {selector: {app: admin-web}, ports: [{name: http, port: 80, targetPort: http}]}
 ---
 apiVersion: apps/v1
 kind: Deployment
+metadata: {name: worker, namespace: retail-intelligence, labels: {app: worker}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: worker}}
+  template:
+    metadata: {labels: {app: worker}}
+    spec:
+      containers:
+      - name: worker
+        image: ghcr.io/REPLACE/sme-retail-worker:latest
+        envFrom: [{configMapRef: {name: retail-config}}]
+        env:
+        - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: retail-secrets, key: worker-database-url}}}
+        - {name: RESEND_API_KEY, valueFrom: {secretKeyRef: {name: retail-secrets, key: resend-api-key, optional: true}}}
+        ports: [{name: metrics, containerPort: 8080}]
+        resources: {requests: {cpu: 50m, memory: 96Mi}, limits: {cpu: 300m, memory: 256Mi}}
+        readinessProbe: {httpGet: {path: /health, port: metrics}, initialDelaySeconds: 8}
+        livenessProbe: {httpGet: {path: /health, port: metrics}, initialDelaySeconds: 25}
+---
+apiVersion: v1
+kind: Service
 metadata: {name: worker, namespace: retail-intelligence}
-spec: {replicas: 1, selector: {matchLabels: {app: worker}}, template: {metadata: {labels: {app: worker}}, spec: {containers: [{name: worker,image: ghcr.io/REPLACE/sme-retail-worker:latest,envFrom: [{secretRef: {name: retail-secrets}}],resources: {requests: {cpu: 50m,memory: 96Mi},limits: {cpu: 300m,memory: 256Mi}}}]}}}
+spec: {selector: {app: worker}, ports: [{name: metrics, port: 8080, targetPort: metrics}]}

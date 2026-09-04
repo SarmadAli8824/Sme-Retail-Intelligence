@@ -1,13 +1,71 @@
 name: Deploy to k3s
 on:
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-  deploy:
+  images:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - {name: sme-retail-api, context: services/api}
+          - {name: sme-retail-worker, context: services/worker}
+          - {name: sme-retail-owner, context: apps/owner-web}
+          - {name: sme-retail-admin, context: apps/admin-web}
+          - {name: retail-pg-backup, context: infra/backup}
     steps:
-    - uses: actions/checkout@v4
-    - uses: azure/setup-kubectl@v4
-    - name: Configure cluster access
-      run: mkdir -p $HOME/.kube && echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-    - name: Apply k3s manifests
-      run: kubectl apply -f infra/kubernetes
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}"}
+      - id: registry
+        name: Normalize registry owner
+        shell: bash
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: "${{ matrix.context }}"
+          push: true
+          platforms: linux/arm64
+          tags: "ghcr.io/${{ steps.registry.outputs.owner }}/${{ matrix.name }}:latest,ghcr.io/${{ steps.registry.outputs.owner }}/${{ matrix.name }}:${{ github.sha }}"
+          cache-from: "type=gha,scope=${{ matrix.name }}"
+          cache-to: "type=gha,mode=max,scope=${{ matrix.name }}"
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-kubectl@v4
+      - name: Configure cluster access
+        run: mkdir -p "$HOME/.kube" && echo "${{ secrets.KUBECONFIG }}" | base64 -d > "$HOME/.kube/config"
+      - name: Render public deployment values
+        env:
+          REGISTRY_OWNER: "${{ github.repository_owner }}"
+          DUCKDNS_SUBDOMAIN: "${{ secrets.DUCKDNS_SUBDOMAIN }}"
+          TLS_EMAIL: "${{ secrets.TLS_EMAIL }}"
+        run: |
+          cp -R infra/kubernetes /tmp/retail-manifests
+          rm /tmp/retail-manifests/config.yaml
+          sed -i "s#ghcr.io/REPLACE#ghcr.io/${REGISTRY_OWNER,,}#g" /tmp/retail-manifests/*.yaml
+          sed -i "s#REPLACE.duckdns.org#${DUCKDNS_SUBDOMAIN}.duckdns.org#g" /tmp/retail-manifests/*.yaml
+          sed -i "s#REPLACE_EMAIL#${TLS_EMAIL}#g" /tmp/retail-manifests/*.yaml
+      - name: Apply manifests
+        run: kubectl apply -f /tmp/retail-manifests
+      - name: Pin release images and verify rollout
+        env: {REGISTRY_OWNER: "${{ github.repository_owner }}"}
+        run: |
+          OWNER="${REGISTRY_OWNER,,}"
+          kubectl -n retail-intelligence set image deployment/api api=ghcr.io/${OWNER}/sme-retail-api:${{ github.sha }}
+          kubectl -n retail-intelligence set image deployment/worker worker=ghcr.io/${OWNER}/sme-retail-worker:${{ github.sha }}
+          kubectl -n retail-intelligence set image deployment/owner-web owner-web=ghcr.io/${OWNER}/sme-retail-owner:${{ github.sha }}
+          kubectl -n retail-intelligence set image deployment/admin-web admin-web=ghcr.io/${OWNER}/sme-retail-admin:${{ github.sha }}
+          kubectl -n retail-intelligence rollout status deployment/api --timeout=180s
+          kubectl -n retail-intelligence rollout status deployment/owner-web --timeout=180s
+          kubectl -n retail-intelligence rollout status deployment/admin-web --timeout=180s
+          kubectl -n retail-intelligence rollout status deployment/worker --timeout=180s

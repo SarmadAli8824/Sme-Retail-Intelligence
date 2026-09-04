@@ -5,9 +5,14 @@ __pycache__/
 .pytest_cache/
 .coverage
 node_modules/
+.gocache/
+.angular/
 dist/
 .next/
 coverage/
 postgres-data/
 *.pem
-
+*.db
+test.db
+tmp/
+output/

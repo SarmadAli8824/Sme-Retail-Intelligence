@@ -11,14 +11,24 @@ services:
       timeout: 5s
       retries: 10
     volumes: [postgres-data:/var/lib/postgresql/data]
+    restart: unless-stopped
   api:
     build: ./services/api
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://retail:change-me@postgres:5432/retail_intelligence}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      DEMO_OWNER_EMAIL: ${DEMO_OWNER_EMAIL:-owner@demo.example}
+      DEMO_OWNER_PASSWORD: ${DEMO_OWNER_PASSWORD:-RetailDemo123!}
     depends_on:
       postgres: {condition: service_healthy}
     ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
   worker:
     build: ./services/worker
     env_file: .env
@@ -27,14 +37,44 @@ services:
       API_BASE_URL: http://api:8000
     depends_on:
       postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "/worker", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
   owner-web:
-    build: ./apps/owner-web
-    environment: {NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1}
-    depends_on: [api]
+    build:
+      context: ./apps/owner-web
+      args: {NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1}
+    depends_on:
+      api: {condition: service_healthy}
     ports: ["3000:3000"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
   admin-web:
     build: ./apps/admin-web
-    depends_on: [api]
+    depends_on:
+      api: {condition: service_healthy}
     ports: ["4200:80"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  backup:
+    profiles: ["operations"]
+    build: ./infra/backup
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-retail}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-retail_intelligence}?sslmode=disable
+      GPG_PASSPHRASE: ${GPG_PASSPHRASE:-local-backup-only}
+      OCI_UPLOAD_URL: ${OCI_UPLOAD_URL:-http://localhost:9999}
+    depends_on:
+      postgres: {condition: service_healthy}
 volumes:
   postgres-data:

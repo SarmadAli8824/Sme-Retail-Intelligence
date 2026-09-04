@@ -11,5 +11,4 @@ spec:
   tls: [{hosts: [REPLACE.duckdns.org], secretName: retail-tls}]
   rules:
   - host: REPLACE.duckdns.org
-    http: {paths: [{path: /api, pathType: Prefix, backend: {service: {name: api, port: {number: 8000}}}},{path: /admin, pathType: Prefix, backend: {service: {name: admin-web, port: {number: 80}}}},{path: /, pathType: Prefix, backend: {service: {name: owner-web, port: {number: 3000}}}}]}
-
+    http: {paths: [{path: /api, pathType: Prefix, backend: {service: {name: api, port: {number: 8000}}}},{path: /admin, pathType: Prefix, backend: {service: {name: admin-web, port: {number: 80}}}},{path: /grafana, pathType: Prefix, backend: {service: {name: grafana, port: {number: 3000}}}},{path: /, pathType: Prefix, backend: {service: {name: owner-web, port: {number: 3000}}}}]}
