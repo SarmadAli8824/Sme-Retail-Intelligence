@@ -141,6 +141,12 @@ npm --prefix apps/admin-web run build
 
 GitHub Actions repeats these tests, builds every container, and validates every Kubernetes manifest on each push and pull request.
 
+## Verification and Recovery
+
+The final local system audit is documented in [the full system test report](docs/SME-Retail-Intelligence-Full-System-Test-Report.docx). It includes the test matrix, service connections, security checks, fixes made during review, and screenshots of every application and API view.
+
+If the local folder is removed, use the [project history and recovery guide](docs/PROJECT-HISTORY-AND-RECOVERY.md) to restore the repository and continue the work with the same goals, architecture, and decisions.
+
 ## Production Deployment
 
 The production design targets one Oracle Cloud Always Free ARM VM running k3s. The manifests provide Traefik ingress, Let's Encrypt certificates, a PostgreSQL StatefulSet, resource limits, health probes, stateless service autoscaling, weekly digest and encrypted backup jobs, Prometheus, Grafana, and PostgreSQL metrics.

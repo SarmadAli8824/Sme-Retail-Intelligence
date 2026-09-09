@@ -9,7 +9,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 @Injectable({providedIn:'root'})
 export class ApiService {
   private http = inject(HttpClient);
-  private api = location.hostname === 'localhost' && location.port === '4200' ? 'http://localhost:8000/api/v1' : '/api/v1';
+  private api = ['localhost','127.0.0.1'].includes(location.hostname) && location.port === '4200' ? `${location.protocol}//${location.hostname}:8000/api/v1` : '/api/v1';
   login(value:unknown){ return this.http.post<any>(this.api + '/auth/login', value); }
   me(){ return this.http.get<any>(this.api + '/auth/me'); }
   users(){ return this.http.get<any[]>(this.api + '/users'); }

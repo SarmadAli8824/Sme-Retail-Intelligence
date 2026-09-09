@@ -18,7 +18,7 @@ def rule_sql(question: str) -> tuple[str, str]:
     q = question.lower()
     sku_match = re.search(r"\bsku\s*(?:is|=|:|#)?\s*([a-z0-9][a-z0-9._-]{1,127})", q, re.I)
     sku_filter = f" WHERE sku = '{sku_match.group(1).upper()}'" if sku_match else ""
-    if "low stock" in q or "running out" in q:
+    if "low stock" in q or "low in stock" in q or "running out" in q:
         return "SELECT sku, product_name, stock_on_hand, reorder_point FROM inventory WHERE stock_on_hand < COALESCE(reorder_point, 10) ORDER BY stock_on_hand ASC", "Items below their reorder point"
     if "stock" in q or "inventory" in q or "available" in q:
         return f"SELECT sku, product_name, stock_on_hand, reorder_point FROM inventory{sku_filter} ORDER BY stock_on_hand ASC", "Current inventory availability"

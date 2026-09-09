@@ -12,6 +12,7 @@
             "outputPath": "dist/admin-web",
             "browser": "src/main.ts",
             "index": "src/index.html",
+            "assets": ["public"],
             "tsConfig": "tsconfig.json"
           }
         },
