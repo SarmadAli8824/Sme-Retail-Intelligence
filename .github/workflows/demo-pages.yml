@@ -1,0 +1,39 @@
+name: Publish Public Demo
+on:
+  push:
+    branches: [main]
+    paths: ['apps/owner-web/**', '.github/workflows/demo-pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/owner-web/package-lock.json
+      - run: npm ci
+        working-directory: apps/owner-web
+      - run: npm run build
+        working-directory: apps/owner-web
+        env:
+          NEXT_PUBLIC_DEMO: 'true'
+          DEMO_BASE_PATH: /Sme-Retail-Intelligence
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/owner-web/out
+      - uses: actions/deploy-pages@v4
+        id: publish

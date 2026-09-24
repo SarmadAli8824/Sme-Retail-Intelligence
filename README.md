@@ -4,6 +4,16 @@ SME Retail Intelligence helps small shops turn ordinary CSV files into useful in
 
 ## What Is Included
 
+### Try the public demo
+
+[Open the interactive sample demo](https://sarmadali8824.github.io/Sme-Retail-Intelligence/).
+
+This free GitHub Pages version lets visitors explore the redesigned owner workspace without an account. It uses sample data in the browser. Forecast previews use a simple illustrative daily average, and chat uses sample matching rules. It does not run Prophet, live AI providers, authentication, CSV processing, or a database. Selected files are not uploaded. Run the Docker application below to use the full backend. Full backend cloud deployment will be added if needed.
+
+The public demo and Docker application share the same owner interface. Only the public build enables `NEXT_PUBLIC_DEMO=true`. The GitHub Pages workflow publishes it automatically after owner app changes.
+
+### Full application
+
 - A Next.js owner dashboard for insights, inventory, forecasts, imports, and chat
 - An Angular staff workspace for user access, queued imports, review history, and settings
 - A FastAPI service for authentication, tenant data, forecasting, analytics, and secure chat

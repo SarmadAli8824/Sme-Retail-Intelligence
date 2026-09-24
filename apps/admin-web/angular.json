@@ -12,7 +12,8 @@
             "outputPath": "dist/admin-web",
             "browser": "src/main.ts",
             "index": "src/index.html",
-            "assets": ["public"],
+            "assets": [{"glob":"**/*","input":"public","output":"/"}],
+            "styles": ["public/refinement.css"],
             "tsConfig": "tsconfig.json"
           }
         },
