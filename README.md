@@ -12,6 +12,8 @@ This free GitHub Pages version lets visitors explore the redesigned owner worksp
 
 The public demo and Docker application share the same owner interface. Only the public build enables `NEXT_PUBLIC_DEMO=true`. The GitHub Pages workflow publishes it automatically after owner app changes.
 
+[Watch the 58 second walkthrough](docs/demo/SME-Retail-Intelligence-Demo-Updated.mp4). The recording shows the full local Docker application with fictional shop data and synthetic narration. [Read the launch caption](docs/LINKEDIN-DEMO-POST.md).
+
 ### Full application
 
 - A Next.js owner dashboard for insights, inventory, forecasts, imports, and chat
@@ -169,7 +171,7 @@ Before the first deployment:
 4. Run the `Deploy to k3s` workflow.
 5. Complete the documented encrypted backup restore drill.
 
-The repository intentionally contains no cloud credentials or fabricated live URL. A public URL and walkthrough video should be added here after the owner supplies the cloud accounts and records the demonstration.
+The repository contains no cloud credentials. The public sample demo and recorded walkthrough are linked above. The full backend is not publicly hosted; production deployment and the cloud restore drill remain pending.
 
 ## Project Scope
 
