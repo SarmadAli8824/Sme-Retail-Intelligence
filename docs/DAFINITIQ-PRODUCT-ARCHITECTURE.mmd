@@ -1,0 +1,83 @@
+flowchart TB
+  %% SME Retail Intelligence | CSV-first decisions for independent retailers
+
+  classDef person fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
+  classDef app fill:#eff6ff,stroke:#2563eb,color:#172554,stroke-width:1.5px
+  classDef service fill:#f5f3ff,stroke:#7c3aed,color:#2e1065,stroke-width:1.5px
+  classDef data fill:#ecfdf5,stroke:#059669,color:#022c22,stroke-width:1.5px
+  classDef guard fill:#fff1f2,stroke:#e11d48,color:#4c0519,stroke-width:1.5px
+  classDef ops fill:#f8fafc,stroke:#64748b,color:#0f172a,stroke-width:1.5px
+  classDef public fill:#fffbeb,stroke:#d97706,color:#451a03,stroke-dasharray:5 3
+
+  subgraph PEOPLE[People and entry points]
+    direction LR
+    OWNER[Shop owner<br/>sales and stock CSVs]:::person
+    STAFF[Shop staff<br/>import review and settings]:::person
+    DEMO[Public sample demo<br/>GitHub Pages<br/>fictional browser data]:::public
+    OWNERUI[Owner workspace<br/>Next.js]:::app
+    STAFFUI[Staff workspace<br/>Angular]:::app
+    OWNER --> OWNERUI
+    STAFF --> STAFFUI
+    DEMO -. no backend or login .-> OWNERUI
+  end
+
+  subgraph APP[Application services: Docker Compose locally, Kubernetes deployment target]
+    direction TB
+    API[FastAPI REST API<br/>JWT authentication<br/>organization scoped access]:::service
+    CSV[CSV intake<br/>schema checks · normalization<br/>row errors · duplicate detection]:::service
+    FORECAST[Forecast service<br/>Prophet with 8+ weeks history<br/>exponential smoothing fallback<br/>7 to 30 day horizon · MAE · RMSE]:::service
+    INSIGHTS[Inventory insights<br/>low stock · overstock risk<br/>top and bottom movers]:::service
+    CHAT[Question to SQL assistant]:::service
+    GUARD[SQLGlot safety gate<br/>SELECT only · allowlists<br/>organization filter · row limit<br/>query timeout · audit trail]:::guard
+    WORKER[Go background worker<br/>queued CSV processing<br/>weekly digest scheduling]:::service
+    MAIL[Email delivery<br/>Resend]:::ops
+  end
+
+  subgraph DATA[Private shop data boundary]
+    direction LR
+    PG[(PostgreSQL<br/>organizations · users<br/>sales · stock · uploads<br/>forecasts · audit · digests)]:::data
+  end
+
+  subgraph AI[Model choices behind a provider interface]
+    direction LR
+    LOCAL[Ollama + Qwen2.5 7B Instruct<br/>open model option<br/>private self hosting]:::app
+    HOSTED[Gemini primary<br/>Groq fallback<br/>optional hosted providers]:::ops
+    RULES[Deterministic offline rules<br/>supported question types]:::app
+  end
+
+  OWNERUI <-->|HTTPS · JSON| API
+  STAFFUI <-->|HTTPS · JSON| API
+  API --> CSV
+  API --> FORECAST
+  API --> INSIGHTS
+  API --> CHAT
+  CSV -->|validated rows and import status| PG
+  FORECAST <-->|daily sales history and forecast records| PG
+  INSIGHTS <-->|stock and sales velocity| PG
+  CHAT -->|question and schema context| LOCAL
+  CHAT -. configured provider .-> HOSTED
+  CHAT -. provider unavailable .-> RULES
+  LOCAL -->|SQL proposal only| GUARD
+  HOSTED -. SQL proposal only .-> GUARD
+  RULES -->|approved query template| GUARD
+  GUARD -->|tenant scoped read only query| PG
+  GUARD -->|safe result and audit event| API
+  WORKER <-->|queued import payload and job status| PG
+  WORKER --> MAIL
+
+  subgraph OPERATIONS[Operations and deployment]
+    direction LR
+    COMPOSE[Docker Compose<br/>one command local startup]:::ops
+    K3S[k3s Kubernetes target<br/>ingress · TLS · probes<br/>resource limits · autoscaling]:::ops
+    METRICS[Prometheus and Grafana<br/>API · worker · forecast · database]:::ops
+    BACKUP[Encrypted PostgreSQL backups<br/>object storage target]:::ops
+  end
+
+  COMPOSE -. runs services locally .-> API
+  K3S -. hosts production services .-> API
+  API -. metrics .-> METRICS
+  WORKER -. metrics .-> METRICS
+  PG -. metrics and backup source .-> METRICS
+  PG -. scheduled encrypted dump .-> BACKUP
+
+  linkStyle default stroke:#64748b,stroke-width:1.2px
